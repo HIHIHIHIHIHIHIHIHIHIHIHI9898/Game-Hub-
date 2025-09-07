@@ -1,0 +1,9 @@
+{
+  "id": "pkmnem",
+  "title": "Pokémon Emerald",
+  "author": "Nintendo / EmulatorJS",
+  "license": "ROM via EmulatorJS",
+  "desc": "Classic Pokémon Emerald, runs in EmulatorJS",
+  "embed": "clpokemonemerald.html",
+  "kind": "local"
+}

@@ -1,250 +1,193 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Free Games Hub</title>
-<style>
-  :root{
-    --bg:#071022;
-    --muted:#9fb0c8;
-    --accent:#06b6d4;
-  }
-  body{margin:0;background:var(--bg);color:#eaf6fb;font-family:Arial,Helvetica,sans-serif;padding:20px;transition:background 0.3s,color 0.3s;}
-  header{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;}
-  h1{margin:0;font-size:22px}
-  input,select,button{padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:#0c1522;color:#fff}
-  button{background:var(--accent);border:0;color:#022;font-weight:700;cursor:pointer}
-  main{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:20px}
-  .card{background:#0c1522;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}
-  .thumb{height:120px;background:#111;background-size:cover;border-radius:6px}
-  .title{font-weight:bold}
-  .tags{font-size:12px;color:var(--muted)}
-  .actions{margin-top:auto;display:flex;gap:8px}
-  .modal,.formModal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center}
-  .modal-inner{background:#021021;padding:14px;border-radius:10px;max-width:95%;width:1000px;max-height:90vh;overflow:auto}
-  .iframe-wrap{height:70vh;background:#000;border-radius:8px;overflow:hidden;position:relative}
-  .fullscreen-btn{position:absolute;top:10px;right:10px;background:var(--accent);border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700}
-  .form-inner{background:#021021;padding:20px;border-radius:10px;width:400px;display:flex;flex-direction:column;gap:10px}
-</style>
+  <meta charset="UTF-8">
+  <title>Free Games Hub</title>
+  <style>
+    body { font-family: sans-serif; margin:0; background:#222; color:white; }
+    header { padding:10px; background:#444; display:flex; flex-direction:column; gap:8px; }
+    #gameList { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; padding:10px; }
+    .card { background:#333; border-radius:12px; padding:10px; cursor:pointer; transition:0.2s; }
+    .card:hover { background:#555; }
+    .modal, .formModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:1000; }
+    .modal-inner, .form-inner { background:#222; padding:20px; border-radius:12px; width:80%; max-width:700px; height:80%; overflow:auto; }
+    .close { float:right; cursor:pointer; font-size:20px; }
+    iframe { width:100%; height:100%; border:0; }
+    button { padding:6px 12px; border:none; border-radius:8px; cursor:pointer; background:#666; color:white; }
+    button:hover { background:#888; }
+  </style>
 </head>
 <body>
-<header>
-  <h1>Free Games Hub</h1>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <input id="search" type="search" placeholder="Search games...">
-    <select id="kindFilter">
-      <option value="all">All</option>
-      <option value="browser">Browser</option>
-      <option value="open">Open Source</option>
-      <option value="local">Local HTML</option>
-    </select>
-    <button onclick="openForm()">+ Add Game</button>
-    <button onclick="importFromUrl()">Import from URL</button>
-    <button onclick="openTheme()">🎨 Theme</button>
-  </div>
-</header>
-
-<main id="grid"></main>
-
-<!-- Game Modal -->
-<div id="modal" class="modal">
-  <div class="modal-inner">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <h2 id="modalTitle" style="margin:0"></h2>
-      <button onclick="closeModal()">Close</button>
+  <header>
+    <h1>Free Games Hub</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="search" type="search" placeholder="Search games...">
+      <select id="kindFilter">
+        <option value="all">All</option>
+        <option value="browser">Browser</option>
+        <option value="open">Open Source</option>
+        <option value="local">Local HTML</option>
+      </select>
+      <button onclick="openForm()">+ Add Game</button>
+      <button onclick="requestGame()">💡 Request a Game</button>
+      <button onclick="ownerLogin()">🔑 Owner</button>
     </div>
-    <div class="iframe-wrap" id="embedArea"></div>
-    <p id="modalDesc" style="color:#9fb0c8"></p>
-    <p id="modalLicense" style="color:#9fb0c8"></p>
-    <a id="modalSource" href="#" target="_blank" style="color:var(--accent)">Source Page</a>
+  </header>
+
+  <main id="gameList"></main>
+
+  <!-- Game Modal -->
+  <div id="modal" class="modal">
+    <div class="modal-inner">
+      <span class="close" onclick="closeModal()">✖</span>
+      <h2 id="modalTitle"></h2>
+      <p id="modalDesc"></p>
+      <p id="modalLicense"></p>
+      <a id="modalSource" target="_blank">Source</a>
+      <div id="embedArea" style="height:70%; margin-top:10px;"></div>
+    </div>
   </div>
-</div>
 
-<!-- Add Game Form Modal -->
-<div id="formModal" class="formModal">
-  <div class="form-inner">
-    <h2>Add Local Game</h2>
-    <input id="newTitle" placeholder="Title" required>
-    <input id="newAuthor" placeholder="Author">
-    <input id="newLicense" placeholder="License (e.g. MIT, CC0)">
-    <textarea id="newDesc" placeholder="Description"></textarea>
-    <input id="newFile" type="file" accept=".html">
-    <button onclick="saveNewGame()">Save</button>
-    <button onclick="closeForm()">Cancel</button>
+  <!-- Add Game Form -->
+  <div id="formModal" class="formModal">
+    <div class="form-inner">
+      <h2>Add Game</h2>
+      <input id="fTitle" placeholder="Title"><br><br>
+      <input id="fAuthor" placeholder="Author"><br><br>
+      <input id="fLicense" placeholder="License"><br><br>
+      <input id="fEmbed" placeholder="Embed URL (or local HTML path)"><br><br>
+      <textarea id="fDesc" placeholder="Description"></textarea><br><br>
+      <button onclick="saveGame()">Save</button>
+      <button onclick="closeForm()">Cancel</button>
+    </div>
   </div>
-</div>
 
-<!-- Theme Modal -->
-<div id="themeModal" class="formModal">
-  <div class="form-inner">
-    <h2>Customize Theme</h2>
-    <label>Background Color <input type="color" id="bgColor" value="#071022"></label>
-    <label>Accent Color <input type="color" id="accentColor" value="#06b6d4"></label>
-    <button onclick="applyTheme()">Apply</button>
-    <button onclick="closeTheme()">Cancel</button>
+  <!-- Owner Panel -->
+  <div id="ownerModal" class="formModal">
+    <div class="form-inner">
+      <h2>Owner Panel</h2>
+      <p>You are logged in as <b>Owner</b>.</p>
+      <button onclick="exportGames()">📥 Export Games JSON</button>
+      <button onclick="closeOwner()">Close</button>
+    </div>
   </div>
-</div>
 
-<script>
-let games = [
-  {
-    id:"g2", title:"HexGL", author:"Thibaut Despoulain",
-    kind:"open", license:"MIT License",
-    source:"https://github.com/BKcore/HexGL",
-    embed:"https://hexgl.bkcore.com/play/",
-    thumb:"https://hexgl.bkcore.com/play/assets/textures/hexgl-logo.png",
-    desc:"A futuristic racing game in WebGL."
-  }
-];
+  <script>
+    // ---------------- Games ----------------
+    let games = [
+      { id:"hexgl", title:"HexGL", author:"Thibaut Despoulain", license:"MIT",
+        desc:"Futuristic racing game", kind:"browser",
+        embed:"https://hexgl.bkcore.com/play/" },
 
-// Load saved games
-if(localStorage.getItem("userGames")){
-  games = games.concat(JSON.parse(localStorage.getItem("userGames")));
-}
+      { id:"pkmnem", title:"Pokémon Emerald", author:"Nintendo / EmulatorJS",
+        license:"Free-to-play ROM via EmulatorJS", kind:"local",
+        desc:"Classic Pokémon Emerald, runs in EmulatorJS",
+        embed:"clpokemonemerald.html" } // <- added file here
+    ];
 
-const grid=document.getElementById('grid');
-const search=document.getElementById('search');
-const filter=document.getElementById('kindFilter');
-const modal=document.getElementById('modal');
-const embedArea=document.getElementById('embedArea');
-const modalTitle=document.getElementById('modalTitle');
-const modalDesc=document.getElementById('modalDesc');
-const modalLicense=document.getElementById('modalLicense');
-const modalSource=document.getElementById('modalSource');
-const formModal=document.getElementById('formModal');
-const themeModal=document.getElementById('themeModal');
+    // Try loading from games.json (overrides hardcoded list if present)
+    fetch("games.json").then(r=>{
+      if(r.ok) return r.json();
+      throw new Error("No games.json");
+    }).then(data=>{
+      games = data;
+      renderGames();
+    }).catch(()=>{ renderGames(); });
 
-function render(){
-  grid.innerHTML="";
-  let q=search.value.toLowerCase(), k=filter.value;
-  games.filter(g=>{
-    if(k!=="all" && g.kind!==k) return false;
-    if(!q) return true;
-    return (g.title+" "+g.author+" "+(g.desc||"")).toLowerCase().includes(q);
-  }).forEach(g=>{
-    let c=document.createElement("div");
-    c.className="card";
-    c.innerHTML=`
-      <div class="thumb" style="background-image:url('${g.thumb||""}')"></div>
-      <div class="title">${g.title}</div>
-      <div class="tags">${g.author||""}</div>
-      <div class="tags">${g.license||""}</div>
-      <div class="actions">
-        <button onclick="openGame('${g.id}')">${g.embed?"Play":"Open"}</button>
-      </div>`;
-    grid.appendChild(c);
-  });
-}
+    let userGames = JSON.parse(localStorage.getItem("userGames")||"[]");
+    games = games.concat(userGames);
 
-function openGame(id){
-  let g = games.find(x => x.id === id); 
-  if(!g) return;
-
-  modal.style.display = "flex";
-  modalTitle.textContent = g.title + " — " + (g.author || "");
-  modalDesc.textContent = g.desc || "";
-  modalLicense.textContent = "License: " + (g.license || "");
-  modalSource.href = g.source || "#";
-
-  embedArea.innerHTML = "";
-
-  if(g.embed){
-    let wrapper=document.createElement("div");
-    wrapper.style="width:100%;height:100%;position:relative";
-    let ifr=document.createElement("iframe");
-    ifr.src=g.embed;
-    ifr.style="width:100%;height:100%;border:0";
-
-    // Trusted hosts that need looser sandbox
-    let trustedHosts=["cdn.jsdelivr.net","emulatorjs.org","emulatorjs"];
-    let urlHost="";
-    try{urlHost=new URL(g.embed).hostname;}catch(e){}
-    if(trustedHosts.some(host=>urlHost.includes(host))){
-      ifr.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-modals");
-    } else {
-      ifr.setAttribute("sandbox","allow-scripts allow-same-origin");
-    }
-
-    let fsBtn=document.createElement("button");
-    fsBtn.textContent="Fullscreen";
-    fsBtn.className="fullscreen-btn";
-    fsBtn.onclick=()=>{ifr.requestFullscreen();};
-
-    wrapper.appendChild(ifr);
-    wrapper.appendChild(fsBtn);
-    embedArea.appendChild(wrapper);
-  } else {
-    embedArea.textContent = "No embed available.";
-  }
-}
-
-function closeModal(){modal.style.display="none";embedArea.innerHTML="";}
-
-function openForm(){formModal.style.display="flex";}
-function closeForm(){formModal.style.display="none";}
-
-function saveNewGame(){
-  let title=document.getElementById("newTitle").value;
-  let author=document.getElementById("newAuthor").value;
-  let license=document.getElementById("newLicense").value;
-  let desc=document.getElementById("newDesc").value;
-  let file=document.getElementById("newFile").files[0];
-  if(!title || !file) return alert("Need a title and HTML file");
-
-  let reader=new FileReader();
-  reader.onload=function(e){
-    let blob=new Blob([e.target.result],{type:"text/html"});
-    let url=URL.createObjectURL(blob);
-    let g={id:"u"+Date.now(),title,author,license,desc,kind:"local",embed:url,thumb:""};
-    games.push(g);
-    let saved=JSON.parse(localStorage.getItem("userGames")||"[]");
-    saved.push(g);
-    localStorage.setItem("userGames",JSON.stringify(saved));
-    closeForm(); render();
-  };
-  reader.readAsText(file);
-}
-
-// Import JSON feed of games
-async function importFromUrl(){
-  let url=prompt("Enter JSON feed URL:");
-  if(!url) return;
-  try {
-    let proxied="https://api.allorigins.win/raw?url="+encodeURIComponent(url);
-    let res=await fetch(proxied);
-    if(!res.ok) throw new Error("Failed to fetch");
-    let data=await res.json();
-    if(Array.isArray(data)){
-      data.forEach(g=>{
-        g.id="x"+Date.now()+Math.random().toString(36).substr(2,5);
-        games.push(g);
+    function renderGames(){
+      const list = document.getElementById("gameList");
+      const search = document.getElementById("search").value.toLowerCase();
+      const kind = document.getElementById("kindFilter").value;
+      list.innerHTML="";
+      games.forEach(g=>{
+        if((kind==="all"||g.kind===kind) &&
+           (g.title.toLowerCase().includes(search) || g.desc.toLowerCase().includes(search))){
+          let d=document.createElement("div");
+          d.className="card";
+          d.innerHTML="<h3>"+g.title+"</h3><p>"+(g.author||"")+"</p>";
+          d.onclick=()=>openGame(g.id);
+          list.appendChild(d);
+        }
       });
-      render();
-      alert("Imported "+data.length+" games!");
-    } else {
-      alert("Invalid JSON format (expected array).");
     }
-  } catch(err){
-    console.error(err);
-    alert("Failed to import: "+err.message);
-  }
-}
 
-// --- Theme functions ---
-function openTheme(){themeModal.style.display="flex";}
-function closeTheme(){themeModal.style.display="none";}
-function applyTheme(){
-  let bg=document.getElementById("bgColor").value;
-  let accent=document.getElementById("accentColor").value;
-  document.documentElement.style.setProperty("--bg",bg);
-  document.documentElement.style.setProperty("--accent",accent);
-  closeTheme();
-}
+    function openGame(id){
+      let g = games.find(x=>x.id===id); if(!g) return;
+      modal.style.display="flex";
+      modalTitle.textContent=g.title+" — "+(g.author||"");
+      modalDesc.textContent=g.desc||"";
+      modalLicense.textContent="License: "+(g.license||"");
+      modalSource.href=g.source||"#";
+      embedArea.innerHTML="";
+      if(g.embed){
+        let ifr=document.createElement("iframe");
+        ifr.src=g.embed;
+        ifr.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-modals");
+        embedArea.appendChild(ifr);
+      }
+    }
+    function closeModal(){modal.style.display="none";}
 
-search.addEventListener("input",render);
-filter.addEventListener("change",render);
-render();
-</script>
+    // ---------------- Add Game ----------------
+    function openForm(){formModal.style.display="flex";}
+    function closeForm(){formModal.style.display="none";}
+    function saveGame(){
+      let g={
+        id:"u"+Date.now(),
+        title:fTitle.value,
+        author:fAuthor.value,
+        license:fLicense.value,
+        desc:fDesc.value,
+        embed:fEmbed.value,
+        kind:"local"
+      };
+      userGames.push(g);
+      localStorage.setItem("userGames",JSON.stringify(userGames));
+      games.push(g);
+      renderGames();
+      closeForm();
+    }
+
+    // ---------------- GitHub Issues Request ----------------
+    function requestGame(){
+      const repoOwner="YOUR_USERNAME";   // change me
+      const repoName="free-games-hub";   // change me
+      const title=encodeURIComponent("New Game Request");
+      const body=encodeURIComponent(
+        "### Game Request\n\n"+
+        "- Title: \n"+
+        "- Author: \n"+
+        "- License: \n"+
+        "- Description: \n"+
+        "- Game URL / Embed Link: \n\n"+
+        "_Submitted via Free Games Hub_"
+      );
+      const issueUrl=`https://github.com/${repoOwner}/${repoName}/issues/new?title=${title}&body=${body}`;
+      window.open(issueUrl,"_blank");
+    }
+
+    // ---------------- Owner Panel ----------------
+    let isOwner=false;
+    function ownerLogin(){
+      let pw=prompt("Enter owner password:");
+      if(pw==="3853"){isOwner=true;ownerModal.style.display="flex";}
+      else alert("Incorrect password!");
+    }
+    function closeOwner(){ownerModal.style.display="none";}
+    function exportGames(){
+      let blob=new Blob([JSON.stringify(userGames,null,2)],{type:"application/json"});
+      let url=URL.createObjectURL(blob);
+      let a=document.createElement("a");
+      a.href=url;a.download="new_games.json";a.click();
+    }
+
+    // ---------------- Init ----------------
+    renderGames();
+    search.oninput=renderGames;
+    kindFilter.onchange=renderGames;
+  </script>
 </body>
 </html>

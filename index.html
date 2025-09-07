@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Free Games Hub</title>
-  <style>
+  <style id="themeStyles">
     body { font-family: sans-serif; margin:0; background:#222; color:white; }
     header { padding:10px; background:#444; display:flex; flex-direction:column; gap:8px; }
     #gameList { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; padding:10px; }
@@ -31,6 +31,8 @@
       </select>
       <button onclick="requestGame()">💡 Request a Game</button>
       <button onclick="ownerLogin()">🔑 Owner</button>
+      <button onclick="tempAddGame()">🎮 Add Your Game</button>
+      <button onclick="openThemeModal()">🎨 Theme</button>
     </div>
   </header>
 
@@ -44,6 +46,9 @@
       <p id="modalDesc"></p>
       <p id="modalLicense"></p>
       <a id="modalSource" target="_blank">Source</a>
+      <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+        <button onclick="toggleFullscreen()">⛶ Fullscreen</button>
+      </div>
       <div id="embedArea" style="height:70%; margin-top:10px;"></div>
     </div>
   </div>
@@ -62,25 +67,46 @@
     </div>
   </div>
 
+  <!-- Temporary Add Game Modal -->
+  <div id="tempModal" class="formModal">
+    <div class="form-inner">
+      <h2>Temporary Add Game</h2>
+      <input id="tTitle" placeholder="Title" required>
+      <input id="tAuthor" placeholder="Author">
+      <input id="tLicense" placeholder="License">
+      <textarea id="tDesc" placeholder="Description"></textarea>
+      <input id="tEmbed" placeholder="Embed URL or local HTML path" required>
+      <button onclick="tempSaveGame()">Add Game</button>
+      <button onclick="closeTemp()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Theme Modal -->
+  <div id="themeModal" class="formModal">
+    <div class="form-inner">
+      <h2>Customize Theme</h2>
+      <label>Background Color: <input type="color" id="bgColor"></label>
+      <label>Text Color: <input type="color" id="textColor"></label>
+      <button onclick="applyTheme()">Apply</button>
+      <button onclick="closeThemeModal()">Cancel</button>
+    </div>
+  </div>
+
   <script>
     let games = [
-      { id:"hexgl", title:"HexGL", author:"Thibaut Despoulain", license:"MIT",
-        desc:"Futuristic racing game", kind:"browser",
-        embed:"https://hexgl.bkcore.com/play/" },
-      { id:"pkmnem", title:"Pokémon Emerald", author:"Nintendo / EmulatorJS",
-        license:"ROM via EmulatorJS", kind:"local",
-        desc:"Classic Pokémon Emerald, runs in EmulatorJS",
-        embed:"clpokemonemerald.html" }
+      { id:"hexgl", title:"HexGL", author:"Thibaut Despoulain", license:"MIT", desc:"Futuristic racing game", kind:"browser", embed:"https://hexgl.bkcore.com/play/" },
+      { id:"pkmnem", title:"Pokémon Emerald", author:"Nintendo / EmulatorJS", license:"ROM via EmulatorJS", kind:"local", desc:"Classic Pokémon Emerald, runs in EmulatorJS", embed:"clpokemonemerald.html" }
     ];
 
-    // Try loading all JSON files in /games folder
+    // Load temporary games from localStorage
+    let savedTempGames = localStorage.getItem("tempGames");
+    if(savedTempGames) games = games.concat(JSON.parse(savedTempGames));
+
     async function loadGamesFolder(){
       try {
-        // GitHub Pages doesn’t allow folder listing,
-        // so you need to keep a games/index.json file that lists them.
         let res = await fetch("games/index.json");
         if(res.ok){
-          let files = await res.json(); // ["game1.json","game2.json"]
+          let files = await res.json(); 
           for(const f of files){
             let gRes = await fetch("games/"+f);
             if(gRes.ok){
@@ -99,8 +125,7 @@
       const kind = document.getElementById("kindFilter").value;
       list.innerHTML="";
       games.forEach(g=>{
-        if((kind==="all"||g.kind===kind) &&
-           (g.title.toLowerCase().includes(search) || g.desc.toLowerCase().includes(search))){
+        if((kind==="all"||g.kind===kind) && (g.title.toLowerCase().includes(search) || g.desc.toLowerCase().includes(search))){
           let d=document.createElement("div");
           d.className="card";
           d.innerHTML="<h3>"+g.title+"</h3><p>"+(g.author||"")+"</p>";
@@ -127,10 +152,9 @@
     }
     function closeModal(){modal.style.display="none";}
 
-    // ---------------- GitHub Issues Request ----------------
     function requestGame(){
-      const repoOwner="YOUR_USERNAME";   // change me
-      const repoName="free-games-hub";   // change me
+      const repoOwner="YOUR_USERNAME";   
+      const repoName="free-games-hub";   
       const title=encodeURIComponent("New Game Request");
       const body=encodeURIComponent(
         "### Game Request\n\n"+
@@ -145,7 +169,7 @@
       window.open(issueUrl,"_blank");
     }
 
-    // ---------------- Owner Panel ----------------
+    // Owner panel
     let isOwner=false;
     function ownerLogin(){
       let pw=prompt("Enter owner password:");
@@ -153,18 +177,8 @@
       else alert("Incorrect password!");
     }
     function closeOwner(){ownerModal.style.display="none";}
-
     function ownerSaveGame(){
-      let g={
-        id:"g"+Date.now(),
-        title:oTitle.value,
-        author:oAuthor.value,
-        license:oLicense.value,
-        desc:oDesc.value,
-        embed:oEmbed.value,
-        kind:"local"
-      };
-      // Download JSON for manual upload
+      let g={id:"g"+Date.now(), title:oTitle.value, author:oAuthor.value, license:oLicense.value, desc:oDesc.value, embed:oEmbed.value, kind:"local"};
       let blob=new Blob([JSON.stringify(g,null,2)],{type:"application/json"});
       let url=URL.createObjectURL(blob);
       let a=document.createElement("a");
@@ -174,11 +188,77 @@
       closeOwner();
     }
 
-    // ---------------- Init ----------------
-    renderGames();
-    loadGamesFolder();
-    search.oninput=renderGames;
-    kindFilter.onchange=renderGames;
+    // Temporary games
+    function tempAddGame(){document.getElementById("tempModal").style.display="flex";}
+    function closeTemp(){document.getElementById("tempModal").style.display="none";}
+    function tempSaveGame(){
+      let g={id:"t"+Date.now(), title:tTitle.value, author:tAuthor.value, license:tLicense.value, desc:tDesc.value, embed:tEmbed.value, kind:"local"};
+      games.push(g);
+      let tempGames = games.filter(x=>x.id.startsWith("t"));
+      localStorage.setItem("tempGames", JSON.stringify(tempGames));
+      renderGames();
+      closeTemp();
+      alert("Temporary game added and saved in your browser!");
+    }
+
+    // Theme customization
+    function openThemeModal(){document.getElementById("themeModal").style.display="flex";}
+    function closeThemeModal(){document.getElementById("themeModal").style.display="none";}
+    function applyTheme(){
+      const bg = document.getElementById("bgColor").value;
+      const text = document.getElementById("textColor").value;
+      const styleEl = document.getElementById("themeStyles");
+      styleEl.innerHTML = `
+        body { font-family: sans-serif; margin:0; background:${bg}; color:${text}; }
+        header { padding:10px; background:${shade(bg,-20)}; display:flex; flex-direction:column; gap:8px; }
+        #gameList { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; padding:10px; }
+        .card { background:${shade(bg,-10)}; border-radius:12px; padding:10px; cursor:pointer; transition:0.2s; color:${text}; }
+        .card:hover { background:${shade(bg,-30)}; }
+        .modal, .formModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:1000; }
+        .modal-inner, .form-inner { background:${shade(bg,-15)}; padding:20px; border-radius:12px; width:80%; max-width:700px; height:auto; overflow:auto; color:${text}; }
+        .close { float:right; cursor:pointer; font-size:20px; }
+        iframe { width:100%; height:100%; border:0; }
+        button { padding:6px 12px; border:none; border-radius:8px; cursor:pointer; background:${shade(bg,-25)}; color:${text}; }
+        button:hover { background:${shade(bg,-10)}; }
+        input, textarea { width:100%; margin-bottom:10px; padding:6px; border-radius:6px; border:1px solid ${shade(bg,-40)}; background:${shade(bg,-30)}; color:${text}; }
+      `;
+      localStorage.setItem("themeBg", bg);
+      localStorage.setItem("themeText", text);
+      closeThemeModal();
+    }
+
+    function shade(col, amt){
+      col=col.replace(/^#/, '');
+      let num=parseInt(col,16), r=(num>>16)+amt, g=(num>>8&0x00FF)+amt, b=(num&0x0000FF)+amt;
+      return "#" + (0x1000000 + (clamp(r)<<16) + (clamp(g)<<8) + clamp(b)).toString(16).slice(1);
+    }
+    function clamp(v){ return Math.max(0, Math.min(255,v)); }
+
+    // Fullscreen
+    function toggleFullscreen(){
+      const iframe = embedArea.querySelector("iframe");
+      if(!iframe) return;
+
+      if(!document.fullscreenElement){
+        if(iframe.requestFullscreen){ iframe.requestFullscreen(); }
+        else if(iframe.webkitRequestFullscreen){ iframe.webkitRequestFullscreen(); }
+        else if(iframe.msRequestFullscreen){ iframe.msRequestFullscreen(); }
+      } else {
+        if(document.exitFullscreen){ document.exitFullscreen(); }
+        else if(document.webkitExitFullscreen){ document.webkitExitFullscreen(); }
+        else if(document.msExitFullscreen){ document.msExitFullscreen(); }
+      }
+    }
+
+    window.onload = function(){
+      let bg = localStorage.getItem("themeBg");
+      let text = localStorage.getItem("themeText");
+      if(bg && text){ document.getElementById("bgColor").value=bg; document.getElementById("textColor").value=text; applyTheme(); }
+      renderGames();
+      loadGamesFolder();
+      search.oninput=renderGames;
+      kindFilter.onchange=renderGames;
+    }
   </script>
 </body>
 </html>

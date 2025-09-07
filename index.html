@@ -75,8 +75,10 @@
       <input id="oAuthor" placeholder="Author">
       <input id="oLicense" placeholder="License (e.g. MIT, CC0)">
       <textarea id="oDesc" placeholder="Description"></textarea>
-      <input id="oEmbed" placeholder="Embed URL or local HTML path" required>
-      <button onclick="ownerSaveGame()">Save & Download JSON</button>
+      <p><b>Game Source:</b></p>
+      <label>Embed URL: <input id="oEmbedUrl" placeholder="https://..."></label><br><br>
+      <label>Upload HTML File: <input type="file" id="oEmbedFile" accept=".html"></label><br><br>
+      <button onclick="ownerSaveGame()">Save & Download Files</button>
       <button onclick="closeOwner()">Cancel</button>
     </div>
   </div>
@@ -199,23 +201,51 @@
     }
     function closeOwner(){ownerModal.style.display="none";}
 
-    function ownerSaveGame(){
-      let g={
-        id:"g"+Date.now(),
-        title:oTitle.value,
-        author:oAuthor.value,
-        license:oLicense.value,
-        desc:oDesc.value,
-        embed:oEmbed.value,
-        kind:"local"
+    async function ownerSaveGame(){
+      const title = oTitle.value.trim();
+      const author = oAuthor.value.trim();
+      const license = oLicense.value.trim();
+      const desc = oDesc.value.trim();
+
+      const url = oEmbedUrl.value.trim();
+      const fileInput = document.getElementById("oEmbedFile");
+      let gameJson = {
+        id: "g"+Date.now(),
+        title, author, license, desc,
+        embed: "",
+        kind: "local"
       };
-      let blob=new Blob([JSON.stringify(g,null,2)],{type:"application/json"});
-      let url=URL.createObjectURL(blob);
-      let a=document.createElement("a");
-      a.href=url;
-      a.download=`game-${g.title.replace(/\\s+/g,"_")}.json`;
-      a.click();
-      alert(`✅ Upload this file to /games/ and add it to games/index.json`);
+
+      if(url){
+        gameJson.embed = url;
+      } else if(fileInput.files.length > 0){
+        const file = fileInput.files[0];
+        const filename = `game-${title.replace(/\\s+/g,"_")}.html`;
+        const text = await file.text();
+
+        // Save HTML file
+        let blobHtml = new Blob([text], {type:"text/html"});
+        let urlHtml = URL.createObjectURL(blobHtml);
+        let aHtml = document.createElement("a");
+        aHtml.href = urlHtml;
+        aHtml.download = filename;
+        aHtml.click();
+
+        gameJson.embed = filename;
+      } else {
+        alert("❌ Please provide either a URL or upload an HTML file.");
+        return;
+      }
+
+      // Save JSON file
+      let blobJson = new Blob([JSON.stringify(gameJson,null,2)], {type:"application/json"});
+      let urlJson = URL.createObjectURL(blobJson);
+      let aJson = document.createElement("a");
+      aJson.href = urlJson;
+      aJson.download = `game-${title.replace(/\\s+/g,"_")}.json`;
+      aJson.click();
+
+      alert("✅ Upload the .json (and the .html if provided) to /games/ and update games/index.json");
       closeOwner();
     }
 

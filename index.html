@@ -10,11 +10,12 @@
     .card { background:#333; border-radius:12px; padding:10px; cursor:pointer; transition:0.2s; }
     .card:hover { background:#555; }
     .modal, .formModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:1000; }
-    .modal-inner, .form-inner { background:#222; padding:20px; border-radius:12px; width:80%; max-width:700px; height:80%; overflow:auto; }
+    .modal-inner, .form-inner { background:#222; padding:20px; border-radius:12px; width:80%; max-width:700px; height:auto; overflow:auto; }
     .close { float:right; cursor:pointer; font-size:20px; }
     iframe { width:100%; height:100%; border:0; }
     button { padding:6px 12px; border:none; border-radius:8px; cursor:pointer; background:#666; color:white; }
     button:hover { background:#888; }
+    input, textarea { width:100%; margin-bottom:10px; padding:6px; border-radius:6px; border:1px solid #444; background:#111; color:white; }
   </style>
 </head>
 <body>
@@ -28,7 +29,6 @@
         <option value="open">Open Source</option>
         <option value="local">Local HTML</option>
       </select>
-      <button onclick="openForm()">+ Add Game</button>
       <button onclick="requestGame()">💡 Request a Game</button>
       <button onclick="ownerLogin()">🔑 Owner</button>
     </div>
@@ -48,54 +48,50 @@
     </div>
   </div>
 
-  <!-- Add Game Form -->
-  <div id="formModal" class="formModal">
-    <div class="form-inner">
-      <h2>Add Game</h2>
-      <input id="fTitle" placeholder="Title"><br><br>
-      <input id="fAuthor" placeholder="Author"><br><br>
-      <input id="fLicense" placeholder="License"><br><br>
-      <input id="fEmbed" placeholder="Embed URL (or local HTML path)"><br><br>
-      <textarea id="fDesc" placeholder="Description"></textarea><br><br>
-      <button onclick="saveGame()">Save</button>
-      <button onclick="closeForm()">Cancel</button>
-    </div>
-  </div>
-
   <!-- Owner Panel -->
   <div id="ownerModal" class="formModal">
     <div class="form-inner">
-      <h2>Owner Panel</h2>
-      <p>You are logged in as <b>Owner</b>.</p>
-      <button onclick="exportGames()">📥 Export Games JSON</button>
-      <button onclick="closeOwner()">Close</button>
+      <h2>Owner Panel: Add Game</h2>
+      <input id="oTitle" placeholder="Title" required>
+      <input id="oAuthor" placeholder="Author">
+      <input id="oLicense" placeholder="License (e.g. MIT, CC0)">
+      <textarea id="oDesc" placeholder="Description"></textarea>
+      <input id="oEmbed" placeholder="Embed URL or local HTML path" required>
+      <button onclick="ownerSaveGame()">Save & Download JSON</button>
+      <button onclick="closeOwner()">Cancel</button>
     </div>
   </div>
 
   <script>
-    // ---------------- Games ----------------
     let games = [
       { id:"hexgl", title:"HexGL", author:"Thibaut Despoulain", license:"MIT",
         desc:"Futuristic racing game", kind:"browser",
         embed:"https://hexgl.bkcore.com/play/" },
-
       { id:"pkmnem", title:"Pokémon Emerald", author:"Nintendo / EmulatorJS",
-        license:"Free-to-play ROM via EmulatorJS", kind:"local",
+        license:"ROM via EmulatorJS", kind:"local",
         desc:"Classic Pokémon Emerald, runs in EmulatorJS",
-        embed:"clpokemonemerald.html" } // <- added file here
+        embed:"clpokemonemerald.html" }
     ];
 
-    // Try loading from games.json (overrides hardcoded list if present)
-    fetch("games.json").then(r=>{
-      if(r.ok) return r.json();
-      throw new Error("No games.json");
-    }).then(data=>{
-      games = data;
+    // Try loading all JSON files in /games folder
+    async function loadGamesFolder(){
+      try {
+        // GitHub Pages doesn’t allow folder listing,
+        // so you need to keep a games/index.json file that lists them.
+        let res = await fetch("games/index.json");
+        if(res.ok){
+          let files = await res.json(); // ["game1.json","game2.json"]
+          for(const f of files){
+            let gRes = await fetch("games/"+f);
+            if(gRes.ok){
+              let g = await gRes.json();
+              games.push(g);
+            }
+          }
+        }
+      } catch(e){ console.warn("No games folder index found."); }
       renderGames();
-    }).catch(()=>{ renderGames(); });
-
-    let userGames = JSON.parse(localStorage.getItem("userGames")||"[]");
-    games = games.concat(userGames);
+    }
 
     function renderGames(){
       const list = document.getElementById("gameList");
@@ -131,26 +127,6 @@
     }
     function closeModal(){modal.style.display="none";}
 
-    // ---------------- Add Game ----------------
-    function openForm(){formModal.style.display="flex";}
-    function closeForm(){formModal.style.display="none";}
-    function saveGame(){
-      let g={
-        id:"u"+Date.now(),
-        title:fTitle.value,
-        author:fAuthor.value,
-        license:fLicense.value,
-        desc:fDesc.value,
-        embed:fEmbed.value,
-        kind:"local"
-      };
-      userGames.push(g);
-      localStorage.setItem("userGames",JSON.stringify(userGames));
-      games.push(g);
-      renderGames();
-      closeForm();
-    }
-
     // ---------------- GitHub Issues Request ----------------
     function requestGame(){
       const repoOwner="YOUR_USERNAME";   // change me
@@ -177,15 +153,30 @@
       else alert("Incorrect password!");
     }
     function closeOwner(){ownerModal.style.display="none";}
-    function exportGames(){
-      let blob=new Blob([JSON.stringify(userGames,null,2)],{type:"application/json"});
+
+    function ownerSaveGame(){
+      let g={
+        id:"g"+Date.now(),
+        title:oTitle.value,
+        author:oAuthor.value,
+        license:oLicense.value,
+        desc:oDesc.value,
+        embed:oEmbed.value,
+        kind:"local"
+      };
+      // Download JSON for manual upload
+      let blob=new Blob([JSON.stringify(g,null,2)],{type:"application/json"});
       let url=URL.createObjectURL(blob);
       let a=document.createElement("a");
-      a.href=url;a.download="new_games.json";a.click();
+      a.href=url;
+      a.download=`game-${g.title.replace(/\s+/g,"_")}.json`;
+      a.click();
+      closeOwner();
     }
 
     // ---------------- Init ----------------
     renderGames();
+    loadGamesFolder();
     search.oninput=renderGames;
     kindFilter.onchange=renderGames;
   </script>

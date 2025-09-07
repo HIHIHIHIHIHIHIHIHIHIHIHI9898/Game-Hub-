@@ -1,0 +1,9 @@
+{
+  "id": "hexgl",
+  "title": "HexGL",
+  "author": "Thibaut Despoulain",
+  "license": "MIT",
+  "desc": "Futuristic racing game",
+  "embed": "https://hexgl.bkcore.com/play/",
+  "kind": "browser"
+}
